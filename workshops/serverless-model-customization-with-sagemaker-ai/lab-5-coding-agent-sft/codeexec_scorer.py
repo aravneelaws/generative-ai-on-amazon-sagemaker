@@ -73,9 +73,12 @@ def extract_code(text: str) -> str:
     """Pull the Python source out of a model response.
 
     Prefers a fenced ```python block; falls back to the largest fenced block; falls back
-    to the whole text. Strips a leading <think>...</think> reasoning trace first.
+    to the whole text. Strips a leading <think>...</think> reasoning trace first. A trace
+    that never closes (the model ran out of budget mid-thought) is dropped entirely, so a
+    half-written snippet from the reasoning is never scored as the answer.
     """
     body = re.sub(r"<think>.*?</think>", " ", text or "", flags=re.DOTALL)
+    body = body.split("<think>")[0]
 
     fences = re.findall(r"```(?:python|py)?\s*(.*?)```", body, re.DOTALL)
     if fences:

@@ -18,8 +18,9 @@ Two datasets, two roles:
                 than a string comparison, and it never overlaps the training data.
 
 The prompt is defined once here and used by every notebook (train, evaluate, serve), so
-the trained prompt is byte-identical to the inference prompt. A second copy pasted into a
-notebook is how train/serve skew gets introduced.
+the trained prompt and the inference prompt share one template (evaluation and serving add
+only the `/no_think` switch, see NO_THINK). A second copy pasted into a notebook is how
+train/serve skew gets introduced.
 """
 
 from __future__ import annotations
@@ -44,14 +45,23 @@ code block, with no explanation before or after.
 TASK:
 {task}"""
 
+# Qwen3 is a reasoning model: by default it opens a <think> block and, on a coding task,
+# can spend the whole generation budget there before writing any code. `/no_think` at the
+# end of the prompt switches that off. It goes on evaluation and serving prompts, not on
+# training prompts (the BigCode completions already answer directly), the same convention
+# Lab 1 uses. Both models are evaluated on the same string, so the comparison stays fair.
+NO_THINK = "/no_think"
 
-def build_prompt(task: str) -> str:
+
+def build_prompt(task: str, no_think: bool = True) -> str:
     """Render the single-string prompt for one coding task.
 
-    The only prompt any notebook stores, for both splits, so what the model trains on
-    and what it is evaluated on are the same string.
+    The only prompt any notebook stores. Training records pass `no_think=False`; the
+    HumanEval test records and the endpoint check keep the default, so the base and
+    fine-tuned models are always evaluated on byte-identical prompts.
     """
-    return INSTRUCTION.format(task=task.strip())
+    body = INSTRUCTION.format(task=task.strip())
+    return f"{body}\n\n{NO_THINK}" if no_think else body
 
 
 # ---------------------------------------------------------------- 2. train / val data
